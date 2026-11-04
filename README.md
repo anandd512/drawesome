@@ -2,7 +2,16 @@
 
 A fast, browser-based whiteboard for sketching diagrams, flowcharts, and wireframes — with smart connectors, magnetic alignment guides, and text-to-diagram generation. Built with React, TypeScript, and roughjs for that hand-drawn look.
 
-Live app: [anandd512.github.io/drawesome](https://anandd512.github.io/drawesome/)
+Live app: [anandd512.github.io/drawesome](https://anandd512.github.io/drawesome/) · The story: [ananddeshpande.in/projects/drawesome](https://ananddeshpande.in/projects/drawesome/)
+
+![A hand-drawn flow diagram in Drawesome with the style panel open](docs/screenshots/canvas.png)
+
+<details>
+<summary>Same diagram in the clean theme</summary>
+
+![The same diagram in the crisp clean theme](docs/screenshots/clean.png)
+
+</details>
 
 ## Features
 
