@@ -24,6 +24,7 @@ Live app: [anandd512.github.io/drawesome](https://anandd512.github.io/drawesome/
 - **Images & hyperlinks** — insert or paste images; attach URLs to shapes.
 - **Sketch / clean themes** — toggle between a hand-drawn look and crisp lines.
 - **Presentation mode**, export/import scenes as JSON, undo/redo, zoom, and pan.
+- **Optional accounts & sync**: sign in with Google, Microsoft, or a one-time code sent to your email (no passwords) to keep your drawings in your account and open them on any device. Without signing in, everything works and drawings stay in your browser.
 
 ## Tech stack
 
@@ -34,6 +35,7 @@ Live app: [anandd512.github.io/drawesome](https://anandd512.github.io/drawesome/
 | State | Zustand |
 | Rendering | roughjs on `<canvas>` + perfect-freehand |
 | Styling | Tailwind CSS |
+| Accounts & sync (optional) | Azure Functions, Cosmos DB, Blob Storage, Communication Services Email ([backend/](backend/README.md)) |
 
 ## Getting started
 
@@ -43,6 +45,18 @@ Prerequisites: Node.js 18+ and npm.
 npm install       # install dependencies
 npm run dev       # start the dev server (http://localhost:5173)
 ```
+
+### Accounts and sync (optional)
+
+The app runs fully without a backend. To turn on sign-in and sync, deploy the Azure
+backend in [`backend/`](backend/README.md) and build the site with its URL:
+
+```powershell
+Copy-Item .env.example .env.local   # then set VITE_API_BASE_URL
+```
+
+For the GitHub Pages build, set the `DRAWESOME_API_URL` repository variable instead.
+When it isn't set, the sign-in button stays hidden.
 
 ## Scripts
 
@@ -66,8 +80,15 @@ src/
     Toolbar.tsx      Left-side tool palette
     TopBar.tsx       Top bar: AI generate, zoom, theme, export/import
     StylePanel.tsx   Right-side style controls
-    Guide.tsx        In-app help & documentation panel
+    GuideWizard.tsx  First-run walkthrough & help
+    RecentsPanel.tsx Recent scenes (this browser + your account)
+    SignInDialog.tsx Google / Microsoft / email-code sign-in
+    AccountMenu.tsx  Account menu, sync status, sign out
   lib/               Rendering, geometry, and diagram-parsing helpers
+    cloud/           API client, sign-in flows, scene sync
+public/
+  auth-callback.html Return page for Google / Microsoft sign-in
+backend/             Optional Azure Functions API + Bicep infrastructure
 ```
 
 ## Keyboard shortcuts

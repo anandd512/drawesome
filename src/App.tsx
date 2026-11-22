@@ -7,9 +7,12 @@ import GuideWizard from "./components/GuideWizard";
 import RecentsPanel from "./components/RecentsPanel";
 import AIPanel from "./components/AIPanel";
 import AISettingsPage from "./components/AISettingsPage";
+import SignInDialog from "./components/SignInDialog";
 import { useStore } from "./store";
 import { getCommonBounds } from "./lib/geometry";
 import { hasAISettings } from "./lib/ai";
+import { initCloud } from "./lib/cloud/auth";
+import { useAuth } from "./lib/cloud/session";
 import type { DrawElement, Tool } from "./types";
 
 const KEY_TO_TOOL: Record<string, Tool> = {
@@ -49,6 +52,12 @@ export default function App() {
   const [aiOpen, setAIOpen] = useState(false);
   const [initialAIPrompt, setInitialAIPrompt] = useState("");
   const [aiConnected, setAIConnected] = useState(hasAISettings);
+  const signInOpen = useAuth((s) => s.signInOpen);
+
+  // Optional accounts: restore the session, finish a redirect sign-in, start syncing.
+  useEffect(() => {
+    initCloud();
+  }, []);
 
   // Fit the camera to a bounds rectangle.
   const fitTo = (b: { x: number; y: number; width: number; height: number }, pad: number) => {
@@ -216,6 +225,7 @@ export default function App() {
           </div>
 
           <GuideWizard />
+          {signInOpen && <SignInDialog />}
           {aiConnected && aiOpen && (
             <AIPanel
               initialPrompt={initialAIPrompt}

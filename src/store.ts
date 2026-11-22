@@ -21,7 +21,8 @@ const HISTORY_LIMIT = 100;
 
 const SCENES_KEY = "drawesome:scenes";
 const DEFAULT_SCENE_NAME = "Untitled";
-const MAX_RECENTS = 10;
+/** Scenes kept in this browser: the open one plus the most recently edited others. */
+export const MAX_RECENTS = 10;
 const MAX_OTHERS = MAX_RECENTS - 1;
 
 /** A persisted snapshot of a scene, used for auto-save and the recents panel. */
@@ -29,8 +30,13 @@ export interface SceneRecord {
   id: string;
   name: string;
   elements: DrawElement[];
+  /** When the scene's content or name last changed (not when it was last opened). */
   updatedAt: number;
 }
+
+/** Newest edit first, capped to the number of "other" scenes kept locally. */
+const rankRecents = (list: SceneRecord[]): SceneRecord[] =>
+  [...list].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_OTHERS);
 
 interface ScenesStore {
   version: number;
@@ -110,6 +116,8 @@ export interface AppState {
   frameIndex: number;
   sceneName: string;
   sceneId: string;
+  /** Edit time of the open scene; bumped by auto-save when its content or name changes. */
+  sceneUpdatedAt: number;
   recents: SceneRecord[];
   past: DrawElement[][];
   future: DrawElement[][];
@@ -121,6 +129,16 @@ export interface AppState {
   newCanvas: () => void;
   loadRecent: (id: string) => void;
   deleteRecent: (id: string) => void;
+  /** Open a scene that isn't in recents yet (e.g. one downloaded from the account). */
+  openScene: (rec: SceneRecord) => void;
+  /**
+   * Merge scenes pulled from the account: `updated` replaces or adds local copies,
+   * `removedIds` were deleted on another device, `evictIds` are safely backed up and
+   * make room for newer ones in this browser.
+   */
+  applyRemote: (updated: SceneRecord[], removedIds: string[], evictIds: string[]) => void;
+  /** Forget every scene in this browser and start from a blank canvas. */
+  resetScenes: () => void;
   setPresenting: (v: boolean) => void;
   setFrameIndex: (i: number) => void;
   setTool: (tool: Tool) => void;
@@ -185,6 +203,7 @@ export const useStore = create<AppState>((set, get) => ({
   frameIndex: 0,
   sceneName: initialCurrent.name,
   sceneId: initialCurrent.id,
+  sceneUpdatedAt: initialCurrent.updatedAt,
   recents: initialRecents,
   past: [],
   future: [],
@@ -200,15 +219,13 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   newCanvas: () => {
-    const { elements, sceneId, sceneName, recents } = get();
+    const { elements, sceneId, sceneName, sceneUpdatedAt, recents } = get();
     const others = recents.filter((s) => s.id !== sceneId);
-    const nextRecents =
+    const nextRecents = rankRecents(
       elements.length > 0
-        ? [
-            { id: sceneId, name: sceneName, elements, updatedAt: Date.now() },
-            ...others,
-          ].slice(0, MAX_OTHERS)
-        : others.slice(0, MAX_OTHERS);
+        ? [{ id: sceneId, name: sceneName, elements, updatedAt: sceneUpdatedAt }, ...others]
+        : others
+    );
     set({
       elements: [],
       selectedIds: [],
@@ -217,6 +234,7 @@ export const useStore = create<AppState>((set, get) => ({
         DEFAULT_SCENE_NAME,
         nextRecents.map((s) => s.name)
       ),
+      sceneUpdatedAt: Date.now(),
       recents: nextRecents,
       past: [],
       future: [],
@@ -224,22 +242,25 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadRecent: (id) => {
-    const { elements, sceneId, sceneName, recents } = get();
-    const target = recents.find((s) => s.id === id);
-    if (!target) return;
-    const others = recents.filter((s) => s.id !== id && s.id !== sceneId);
-    const nextRecents =
+    const target = get().recents.find((s) => s.id === id);
+    if (target) get().openScene(target);
+  },
+
+  openScene: (target) => {
+    const { elements, sceneId, sceneName, sceneUpdatedAt, recents } = get();
+    if (target.id === sceneId) return;
+    const others = recents.filter((s) => s.id !== target.id && s.id !== sceneId);
+    const nextRecents = rankRecents(
       elements.length > 0
-        ? [
-            { id: sceneId, name: sceneName, elements, updatedAt: Date.now() },
-            ...others,
-          ].slice(0, MAX_OTHERS)
-        : others.slice(0, MAX_OTHERS);
+        ? [{ id: sceneId, name: sceneName, elements, updatedAt: sceneUpdatedAt }, ...others]
+        : others
+    );
     set({
       elements: target.elements,
       selectedIds: [],
       sceneId: target.id,
       sceneName: target.name,
+      sceneUpdatedAt: target.updatedAt,
       recents: nextRecents,
       past: [],
       future: [],
@@ -248,6 +269,64 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteRecent: (id) =>
     set((s) => ({ recents: s.recents.filter((r) => r.id !== id) })),
+
+  applyRemote: (updated, removedIds, evictIds) => {
+    const s = get();
+    const removed = new Set(removedIds);
+    const evict = new Set(evictIds);
+    const incoming = new Map(updated.map((r) => [r.id, r]));
+    const known = new Set(s.recents.map((r) => r.id));
+
+    let recents = s.recents
+      .filter((r) => !removed.has(r.id) && !evict.has(r.id) && r.id !== s.sceneId)
+      .map((r) => incoming.get(r.id) ?? r);
+    for (const r of updated) {
+      if (r.id !== s.sceneId && !known.has(r.id)) recents.push(r);
+    }
+    recents = rankRecents(recents);
+
+    const remoteCurrent = incoming.get(s.sceneId);
+    if (removed.has(s.sceneId)) {
+      // The open scene was deleted on another device: move to the newest remaining one.
+      const [next, ...rest] = recents;
+      set({
+        elements: next ? next.elements : [],
+        sceneId: next ? next.id : nanoid(),
+        sceneName: next ? next.name : makeUniqueName(DEFAULT_SCENE_NAME, rest.map((r) => r.name)),
+        sceneUpdatedAt: next ? next.updatedAt : Date.now(),
+        recents: next ? rest : recents,
+        selectedIds: [],
+        past: [],
+        future: [],
+      });
+    } else if (remoteCurrent) {
+      // Edited on another device since this browser last changed it. Undo brings back
+      // the local version.
+      set({
+        elements: remoteCurrent.elements,
+        sceneName: remoteCurrent.name,
+        sceneUpdatedAt: remoteCurrent.updatedAt,
+        selectedIds: [],
+        past: [...s.past, clone(s.elements)].slice(-HISTORY_LIMIT),
+        future: [],
+        recents,
+      });
+    } else {
+      set({ recents });
+    }
+  },
+
+  resetScenes: () =>
+    set({
+      elements: [],
+      selectedIds: [],
+      sceneId: nanoid(),
+      sceneName: DEFAULT_SCENE_NAME,
+      sceneUpdatedAt: Date.now(),
+      recents: [],
+      past: [],
+      future: [],
+    }),
 
   setPresenting: (v) => set({ presenting: v }),
   setFrameIndex: (i) => set({ frameIndex: i }),
@@ -619,23 +698,40 @@ export const useStore = create<AppState>((set, get) => ({
 // Persist the scene to localStorage whenever the elements or scene name change,
 // debounced so rapid edits (e.g. dragging) don't thrash storage. This is
 // separate from the explicit JSON export and guards against losing unsaved work.
+//
+// It also keeps `sceneUpdatedAt` honest: a change to the open scene's content or name
+// is an edit and gets the current time, while switching scenes or applying a copy
+// from the account (which set `sceneUpdatedAt` themselves) is not. Account sync
+// relies on this to decide which copy of a scene is newer.
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastElements = useStore.getState().elements;
 let lastName = useStore.getState().sceneName;
 let lastId = useStore.getState().sceneId;
 let lastRecents = useStore.getState().recents;
+let lastUpdatedAt = useStore.getState().sceneUpdatedAt;
 useStore.subscribe((state) => {
   if (
     state.elements === lastElements &&
     state.sceneName === lastName &&
     state.sceneId === lastId &&
-    state.recents === lastRecents
+    state.recents === lastRecents &&
+    state.sceneUpdatedAt === lastUpdatedAt
   )
     return;
+  const edited =
+    state.sceneId === lastId &&
+    state.sceneUpdatedAt === lastUpdatedAt &&
+    (state.elements !== lastElements || state.sceneName !== lastName);
   lastElements = state.elements;
   lastName = state.sceneName;
   lastId = state.sceneId;
   lastRecents = state.recents;
+  lastUpdatedAt = state.sceneUpdatedAt;
+  if (edited) {
+    // Strictly increasing, so two edits in the same millisecond still count as newer.
+    useStore.setState({ sceneUpdatedAt: Math.max(Date.now(), state.sceneUpdatedAt + 1) });
+    return; // the nested update above re-enters this listener and schedules the save
+  }
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const s = useStore.getState();
@@ -643,7 +739,7 @@ useStore.subscribe((state) => {
       id: s.sceneId,
       name: s.sceneName,
       elements: s.elements,
-      updatedAt: Date.now(),
+      updatedAt: s.sceneUpdatedAt,
     };
     const scenes = [current, ...s.recents.filter((r) => r.id !== s.sceneId)].slice(
       0,

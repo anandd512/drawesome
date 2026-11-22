@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Signing in to Drawesome</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: #374151;
+        background: #f7f8fa;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="msg">Signing you in…</p>
+    <script>
+      // Google / Microsoft redirect here with the ID token in the URL fragment. Hand it
+      // to the Drawesome tab through localStorage (see src/lib/cloud/oidc.ts), then
+      // close the popup, or go back to the app if the whole tab was redirected.
+      (function () {
+        var params = new URLSearchParams(window.location.hash.slice(1) || window.location.search.slice(1));
+        // Keep the token out of history and away from anything else on the page.
+        history.replaceState(null, "", window.location.pathname);
+        var result = {
+          state: params.get("state") || undefined,
+          idToken: params.get("id_token") || undefined,
+          error: params.get("error") || undefined,
+        };
+        var mode = "popup";
+        try {
+          var pending = JSON.parse(localStorage.getItem("drawesome:oidc:pending") || "null");
+          if (pending && pending.mode === "redirect") mode = "redirect";
+          localStorage.setItem("drawesome:oidc:result", JSON.stringify(result));
+        } catch (e) {
+          document.getElementById("msg").textContent =
+            "Sign-in needs browser storage, which is blocked here. Allow site data for this page and try again.";
+          return;
+        }
+        var appRoot = new URL(".", window.location.href).href;
+        if (mode === "redirect") {
+          window.location.replace(appRoot);
+          return;
+        }
+        window.close();
+        setTimeout(function () {
+          document.getElementById("msg").innerHTML =
+            'Done. You can close this window and go back to <a href="' + appRoot + '">Drawesome</a>.';
+        }, 500);
+      })();
+    </script>
+  </body>
+</html>

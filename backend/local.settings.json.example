@@ -1,0 +1,16 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_CONNECTION_STRING": "<from `az cosmosdb keys list --type connection-strings`, or the Cosmos DB Emulator's>",
+    "COSMOS_DATABASE": "drawesome",
+    "SCENES_STORAGE_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "SESSION_SIGNING_KEY": "<random 32+ character secret, e.g. `openssl rand -base64 32`>",
+    "ACS_CONNECTION_STRING": "<from `az communication list-key --name <acs-name>`, or leave empty with DEV_LOG_CODES=true>",
+    "ACS_SENDER_ADDRESS": "DoNotReply@<generated-guid>.azurecomm.net",
+    "GOOGLE_CLIENT_ID": "<OAuth client ID from Google Cloud Console, or empty to hide the Google button>",
+    "MICROSOFT_CLIENT_ID": "<Application (client) ID of the Entra app registration, or empty to hide the Microsoft button>",
+    "DEV_LOG_CODES": "true"
+  }
+}

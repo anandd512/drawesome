@@ -7,6 +7,7 @@ import {
   parseJSON,
 } from "../lib/export";
 import { getCommonBounds } from "../lib/geometry";
+import AccountMenu from "./AccountMenu";
 
 interface TopBarProps {
   aiConnected: boolean;
@@ -266,6 +267,8 @@ export default function TopBar({ aiConnected, onOpenAI, onOpenSettings }: TopBar
           🗑
         </button>
       </div>
+
+      <AccountMenu />
 
       {pending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">

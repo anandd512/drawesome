@@ -82,13 +82,15 @@ The cost is quiet but real: diagrams that would have made an idea land never get
 | Sketch / clean themes | Toggle hand-drawn vs. crisp rendering | Priya, Devin |
 | Images & links | Insert/paste images; attach hyperlinks to shapes | All |
 | Present & export | Presentation mode; export/import scenes as JSON | Devin, Priya |
+| Optional accounts & sync | Passwordless sign-in (Google, Microsoft, or an emailed one-time code) keeps drawings in an account and in step across devices | Maya, Priya |
 
 ---
 
 ## 5. Experience
 
 **Design principles**
-- **Fast by default** — no setup, no accounts, no modes to learn before drawing.
+- **Fast by default** — no setup, no modes to learn before drawing, and no account needed to start.
+- **Accounts are optional and passwordless** — signing in (Google, Microsoft, or a one-time code sent by email) only adds backup and cross-device sync; the browser stays where editing happens, so the app keeps working offline.
 - **Tidy without effort** — snapping and auto-fit do the formatting for you.
 - **Sticky, forgiving tools** — the chosen tool stays active; full undo/redo.
 - **Handmade, not sloppy** — the sketch aesthetic reads as intentional.
